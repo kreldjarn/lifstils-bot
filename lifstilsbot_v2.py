@@ -13,11 +13,12 @@ from keras.utils import np_utils
 def usage():
     pass
 
-def train_model(corpus_path, epochs=20):
+def create_model(corpus_path):
     corpus = open(corpus_path).read().lower()
 
     alphabet = sorted(list(set(corpus)))
-    char_to_int = dict((c, i) for i, c in enumerate(alphabet))
+    char2int = dict((c, i) for i, c in enumerate(alphabet))
+    int2char = dict((i, c) for i, c in enumerate(alphabet))
 
     corpus_length = len(corpus)
     alphabet_length = len(alphabet)
@@ -30,8 +31,8 @@ def train_model(corpus_path, epochs=20):
     for i in range(0, corpus_length - seq_length):
         seq_in = corpus[i:i + seq_length]
         seq_out = corpus[i + seq_length]
-        dataX.append([char_to_int[char] for char in seq_in])
-        dataY.append(char_to_int[seq_out])
+        dataX.append([char2int[char] for char in seq_in])
+        dataY.append(char2int[seq_out])
 
     n_patterns = len(dataX)
 
@@ -49,22 +50,48 @@ def train_model(corpus_path, epochs=20):
     model.add(LSTM(256))
     model.add(Dropout(0.2))
     model.add(Dense(y.shape[1], activation='softmax'))
-    model.compile(loss='categorical_crossentropy', optimizer='adam')
+    return model, dataX, alphabet_length, int2char
 
+def train_model(corpus_path, epochs=20):
+    model = create_model(corpus_path)[0]
+    model.compile(loss='categorical_crossentropy', optimizer='adam')
     out_file = "models/lifstils-bot-{epoch:02d}-{loss:.4f}.hdf5"
     checkpoint = ModelCheckpoint(out_file, monitor='loss', verbose=1, save_best_only=True, mode='min')
+    model.fit(X, y, epochs=epochs, batch_size=128, callbacks=[checkpoint])
 
-    model.fit(X, y, epochs=20, batch_size=128, callbacks=[checkpoint])
+def generate_text(corpus_path, model, length):
+    model, dataX, alphabet_length, int2char = create_model(corpus_path)
+    model.load_weights(model)
+    model.compile(loss='categorical_crossentropy', optimizer='adam')
 
-def generate_text(model, length):
-    pass
+    seed = dataX[numpy.random.randint(0, len(dataX) - 1)]
+
+    for i in range(length):
+        x = numpy.reshape(seed, (1, len(seed), 1)) / alphabet_length
+        prediction = model.predict(x, verbose=0)
+        idx = numpy.argmax(prediction)
+        res = int2char[idx]
+        sys.stdout.write(res)
+        seed = seed.append(idx)[1:]
+
+
 
 if __name__ == '__main__':
     try:
-        opts, args = getopt.getopt(sys.argv[1:], 't:e:g:l:h', ['train=', 'epochs=', 'generate=', 'length=', 'help'])
+        opts, args = getopt.getopt(sys.argv[1:], 'tf:e:g:l:h', ['train', 'file=', 'epochs=', 'generate=', 'length=', 'help'])
     except getopt.GetoptError:
         usage()
         sys.exit(2)
+
+    filename = ''
+    try:
+        filename = opts['-f']
+    except KeyError:
+        pass
+    try:
+        filename = opts['--file']
+    except KeyError:
+        pass
 
     for opt, arg in opts:
         if opt in ('-h', '--help'):
@@ -72,6 +99,9 @@ if __name__ == '__main__':
             sys.exit()
 
         elif opt in ('-t', '--train'):
+            if len(filename) == 0:
+                usage()
+                sys.exit(2)
             try:
                 epochs = opts['-e']
             except KeyError:
@@ -79,9 +109,12 @@ if __name__ == '__main__':
                     epochs = opts['--epochs']
                 except KeyError:
                     epochs = 20
-            train_model(arg, epochs)
+            train_model(filename, epochs)
 
         elif opt in ('-g', '--generate'):
+            if len(filename) == 0:
+                usage()
+                sys.exit(2)
             try:
                 length = opts['-l']
             except KeyError:
@@ -90,6 +123,9 @@ if __name__ == '__main__':
                 except KeyError:
                     length = 100
 
-            generate_text(arg, length)
+            generate_text(filename, arg, length)
+        else:
+            usage()
+            sys.exit(2)
 
 
