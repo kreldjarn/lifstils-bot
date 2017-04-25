@@ -64,3 +64,10 @@ if __name__ == '__main__':
         usage()
         sys.exit(2)
 
+    for opt, arg in opts:
+        if opt in ('-h', '--help'):
+            usage()
+            sys.exit()
+        elif opt in ('-t', '--train'):
+            train_model(arg)
+
