@@ -56,10 +56,12 @@ def train_model(corpus_path, epochs=20):
 
     model.fit(X, y, epochs=20, batch_size=128, callbacks=[checkpoint])
 
+def generate_text(model, length):
+    pass
 
 if __name__ == '__main__':
     try:
-        opts, args = getopt.getopt(sys.argv[1:], 't:g:h', ['train=', 'generate=', 'help'])
+        opts, args = getopt.getopt(sys.argv[1:], 't:e:g:l:h', ['train=', 'epochs=', 'generate=', 'length=', 'help'])
     except getopt.GetoptError:
         usage()
         sys.exit(2)
@@ -68,6 +70,26 @@ if __name__ == '__main__':
         if opt in ('-h', '--help'):
             usage()
             sys.exit()
+
         elif opt in ('-t', '--train'):
-            train_model(arg)
+            try:
+                epochs = opts['-e']
+            except KeyError:
+                try:
+                    epochs = opts['--epochs']
+                except KeyError:
+                    epochs = 20
+            train_model(arg, epochs)
+
+        elif opt in ('-g', '--generate'):
+            try:
+                length = opts['-l']
+            except KeyError:
+                try:
+                    length = opts['--length']
+                except KeyError:
+                    length = 100
+
+            generate_text(arg, length)
+
 
